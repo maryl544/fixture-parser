@@ -16,6 +16,28 @@ type ParseError struct {
 	Message string
 }
 
+// ParseErrors is the error returned by Parse when one or more lines are
+// malformed. Errors are in source order.
+type ParseErrors []*ParseError
+
+// Error renders every problem, separated by a blank line.
+func (e ParseErrors) Error() string {
+	parts := make([]string, len(e))
+	for i, pe := range e {
+		parts[i] = pe.Error()
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// Unwrap lets errors.As find an individual *ParseError.
+func (e ParseErrors) Unwrap() []error {
+	out := make([]error, len(e))
+	for i, pe := range e {
+		out[i] = pe
+	}
+	return out
+}
+
 func newParseError(line, column int, source, message string) *ParseError {
 	return &ParseError{Line: line, Column: column, Source: source, Message: message}
 }

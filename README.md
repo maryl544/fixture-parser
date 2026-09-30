@@ -76,8 +76,10 @@ separator, so the fix is obvious without re-reading the whole line.
 
 ## Status
 
-Early skeleton. The parser handles the format above and stops at the first
-error. See the issue tracker for what's planned next.
+Early skeleton. The parser handles the format above and reports every
+malformed line in one pass, as a `ParseErrors` value. Use `errors.As` with
+`*ParseError` to get at an individual problem. See the issue tracker for
+what's planned next.
 
 ## License
 

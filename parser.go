@@ -10,11 +10,14 @@ import (
 
 const separator = " vs "
 
-// Parse reads a fixture schedule from r. It stops at the first malformed
-// line and returns a *ParseError describing exactly where the problem is.
+// Parse reads a fixture schedule from r. It keeps going after a malformed
+// line so that every problem in a hand-edited file can be fixed in one pass.
+// If any line is malformed it returns a nil schedule and a ParseErrors value
+// with one *ParseError per bad line.
 func Parse(r io.Reader) (*Schedule, error) {
 	scanner := bufio.NewScanner(r)
 	sched := &Schedule{}
+	var errs ParseErrors
 	round := 1
 	sawBlank := false
 
@@ -36,19 +39,25 @@ func Parse(r io.Reader) (*Schedule, error) {
 
 		fx, err := parseLine(raw, lineNo, round)
 		if err != nil {
-			return nil, err
+			// A bad line still counts toward round inference, so the
+			// lines after it are not reported against the wrong round.
+			errs = append(errs, err)
+			continue
 		}
 		sched.Fixtures = append(sched.Fixtures, fx)
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading schedule: %w", err)
 	}
+	if len(errs) > 0 {
+		return nil, errs
+	}
 	return sched, nil
 }
 
 // parseLine parses a single non-blank, non-comment line in the form
 // "<date> <home> vs <away>".
-func parseLine(raw string, lineNo, round int) (Fixture, error) {
+func parseLine(raw string, lineNo, round int) (Fixture, *ParseError) {
 	idx := strings.IndexAny(raw, " \t")
 	if idx == -1 {
 		return Fixture{}, newParseError(lineNo, 1, raw,
@@ -56,8 +65,8 @@ func parseLine(raw string, lineNo, round int) (Fixture, error) {
 	}
 
 	dateStr := raw[:idx]
-	date, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
+	date, terr := time.Parse("2006-01-02", dateStr)
+	if terr != nil {
 		return Fixture{}, newParseError(lineNo, 1, raw,
 			fmt.Sprintf("invalid date %q: expected format YYYY-MM-DD", dateStr))
 	}
